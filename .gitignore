@@ -208,6 +208,7 @@ dist
 /playwright/.cache/
 /playwright/.auth/
 
+./.back
 .memo.md
 worker-configuration.d.ts
 wrangler.json
