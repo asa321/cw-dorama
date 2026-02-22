@@ -1,138 +1,201 @@
-import type { MetaFunction } from "@remix-run/cloudflare";
+import { json, type LoaderFunctionArgs } from "@remix-run/cloudflare";
+import { useLoaderData, useNavigation, useSearchParams } from "@remix-run/react";
+import { Header } from "../components/Header";
+import { ArticleCard } from "../components/ArticleCard";
+import type { Article } from "../utils/db.server";
 
-export const meta: MetaFunction = () => {
-	return [
-		{ title: "New Remix App" },
-		{ name: "description", content: "Welcome to Remix!" },
-	];
-};
+export async function loader({ request, context }: LoaderFunctionArgs) {
+	const url = new URL(request.url);
+	const q = url.searchParams.get("q") || "";
+	const tag = url.searchParams.get("tag") || "";
+
+	const db = context.cloudflare.env.DB;
+
+	let query = `
+    SELECT a.*
+    FROM articles a
+    WHERE a.status = 'published'
+  `;
+	const params: string[] = [];
+
+	if (q) {
+		query += ` AND (a.title LIKE ? OR a.content LIKE ?)`;
+		params.push(`%${q}%`, `%${q}%`);
+	}
+
+	if (tag) {
+		query += ` AND EXISTS (SELECT 1 FROM article_tags t WHERE t.article_id = a.id AND t.tag = ?)`;
+		params.push(tag);
+	}
+
+	query += ` ORDER BY a.created_at DESC LIMIT 20`;
+
+	let stmt = db.prepare(query);
+	if (params.length > 0) {
+		stmt = stmt.bind(...params);
+	}
+
+	const { results: articles } = await stmt.all<Article>();
+
+	let mappedArticles = articles;
+	if (articles.length > 0) {
+		const placeholders = articles.map(() => '?').join(',');
+		const ids = articles.map(a => a.id);
+		const { results: tags } = await db.prepare(`SELECT article_id, tag FROM article_tags WHERE article_id IN (${placeholders})`)
+			.bind(...ids)
+			.all<{ article_id: number, tag: string }>();
+
+		mappedArticles = articles.map(a => ({
+			...a,
+			tags: tags.filter(t => t.article_id === a.id).map(t => t.tag)
+		}));
+	}
+
+	const { results: popularTags } = await db.prepare(`
+    SELECT tag, COUNT(*) as count 
+    FROM article_tags 
+    JOIN articles a ON a.id = article_tags.article_id AND a.status = 'published'
+    GROUP BY tag 
+    ORDER BY count DESC 
+    LIMIT 10
+  `).all<{ tag: string, count: number }>();
+
+	return json({ articles: mappedArticles, q, tag, popularTags });
+}
 
 export default function Index() {
+	const { articles, q, tag, popularTags } = useLoaderData<typeof loader>();
+	const navigation = useNavigation();
+	const [searchParams, setSearchParams] = useSearchParams();
+
+	const isSearching = navigation.state === "loading";
+
+	const handleTagClick = (clickedTag: string) => {
+		const newParams = new URLSearchParams(searchParams);
+		if (newParams.get("tag") === clickedTag) {
+			newParams.delete("tag");
+		} else {
+			newParams.set("tag", clickedTag);
+		}
+		setSearchParams(newParams);
+	};
+
 	return (
-		<div className="flex h-screen items-center justify-center">
-			<div className="flex flex-col items-center gap-16">
-				<header className="flex flex-col items-center gap-9">
-					<h1 className="leading text-2xl font-bold text-gray-800 dark:text-gray-100">
-						Welcome to <span className="sr-only">Remix</span>
-					</h1>
-					<div className="h-[144px] w-[434px]">
-						<img
-							src="/logo-light.png"
-							alt="Remix"
-							className="block w-full dark:hidden"
-						/>
-						<img
-							src="/logo-dark.png"
-							alt="Remix"
-							className="hidden w-full dark:block"
-						/>
+		<div className="min-h-screen bg-gray-50 dark:bg-gray-950 font-sans selection:bg-pink-100 selection:text-pink-900 overflow-x-hidden">
+			<Header />
+
+			{/* Hero Section */}
+			{!q && !tag && (
+				<section className="relative overflow-hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
+					<div className="absolute inset-0 bg-gradient-to-tr from-pink-500/5 via-transparent to-rose-400/5 mix-blend-overlay" />
+					<div className="container mx-auto px-4 py-16 md:py-24 relative z-10 lg:text-center text-left">
+						<h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-gray-900 dark:text-white mb-6">
+							ドラマの感動を、共に。<br />
+							<span className="bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-rose-400">
+								韓国ドラマの奥深い世界へ
+							</span>
+						</h1>
+						<p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-2xl lg:mx-auto leading-relaxed">
+							最新の話題作から、心を打つ名作まで。あなたにぴったりの韓国ドラマが見つかるレビュー＆コラムサイト。
+						</p>
 					</div>
-				</header>
-				<nav className="flex flex-col items-center justify-center gap-4 rounded-3xl border border-gray-200 p-6 dark:border-gray-700">
-					<p className="leading-6 text-gray-700 dark:text-gray-200">
-						What&apos;s next?
-					</p>
-					<ul>
-						{resources.map(({ href, text, icon }) => (
-							<li key={href}>
-								<a
-									className="group flex items-center gap-3 self-stretch p-3 leading-normal text-blue-700 hover:underline dark:text-blue-500"
-									href={href}
-									target="_blank"
-									rel="noreferrer"
+				</section>
+			)}
+
+			{/* Main Content */}
+			<main className="container mx-auto px-4 py-8 md:py-12 flex flex-col lg:flex-row gap-8 lg:gap-12 relative">
+				<div className="flex-1 min-w-0">
+					{q && (
+						<div className="mb-8 p-5 bg-white dark:bg-gray-900 rounded-2xl border border-pink-100 dark:border-gray-800 shadow-sm flex items-center justify-between">
+							<h2 className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-200">
+								「<span className="text-pink-500">{q}</span>」の検索結果
+								<span className="ml-2 text-sm font-normal text-gray-500 bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-full">{articles.length}件</span>
+							</h2>
+							<button onClick={() => { searchParams.delete('q'); setSearchParams(searchParams); }} className="text-gray-400 hover:text-pink-500 text-sm">クリア ✕</button>
+						</div>
+					)}
+					{tag && (
+						<div className="mb-8 p-5 bg-white dark:bg-gray-900 rounded-2xl border border-pink-100 dark:border-gray-800 shadow-sm flex items-center justify-between">
+							<div className="flex items-center gap-3">
+								<span className="text-2xl bg-pink-50 dark:bg-pink-900/30 w-10 h-10 flex items-center justify-center rounded-xl text-pink-500">🏷️</span>
+								<h2 className="text-lg md:text-xl font-bold text-gray-800 dark:text-gray-200">
+									#{tag} の記事
+								</h2>
+							</div>
+							<button onClick={() => { searchParams.delete('tag'); setSearchParams(searchParams); }} className="text-gray-400 hover:text-pink-500 text-sm">クリア ✕</button>
+						</div>
+					)}
+
+					{isSearching ? (
+						<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+							{[...Array(6)].map((_, i) => (
+								<div key={i} className="animate-pulse bg-white dark:bg-gray-900 rounded-2xl h-96 border border-gray-100 dark:border-gray-800 flex flex-col">
+									<div className="h-48 bg-gray-100 dark:bg-gray-800 rounded-t-2xl" />
+									<div className="p-5 flex flex-col gap-4 flex-1">
+										<div className="flex gap-2"><div className="h-6 w-16 bg-gray-100 dark:bg-gray-800 rounded-full" /></div>
+										<div className="h-6 bg-gray-100 dark:bg-gray-800 rounded w-full" />
+										<div className="h-4 bg-gray-100 dark:bg-gray-800 rounded w-5/6" />
+										<div className="h-4 bg-gray-100 dark:bg-gray-800 rounded w-2/3 mt-auto" />
+									</div>
+								</div>
+							))}
+						</div>
+					) : articles.length > 0 ? (
+						<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+							{articles.map((article) => (
+								<ArticleCard key={article.id} article={article as any} />
+							))}
+						</div>
+					) : (
+						<div className="text-center py-24 bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-sm">
+							<div className="text-7xl mb-6 opacity-80 animate-bounce">🥲</div>
+							<h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-3">記事が見つかりませんでした</h3>
+							<p className="text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+								条件を変えて再検索するか、新しいトレンドタグをチェックしてみてください。
+							</p>
+							{(q || tag) && (
+								<button
+									onClick={() => setSearchParams({})}
+									className="mt-6 px-6 py-2.5 bg-pink-50 text-pink-600 dark:bg-pink-900/40 dark:text-pink-400 hover:bg-pink-100 dark:hover:bg-pink-900/60 rounded-full font-medium transition-colors"
 								>
-									{icon}
-									{text}
-								</a>
-							</li>
-						))}
-					</ul>
-				</nav>
-			</div>
+									検索条件をクリア
+								</button>
+							)}
+						</div>
+					)}
+				</div>
+
+				{/* Sidebar */}
+				<aside className="lg:w-80 w-full shrink-0">
+					<div className="sticky top-24 bg-white dark:bg-gray-900 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
+						<h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+							<span className="text-pink-500 shrink-0">🔥</span> 人気のタグ
+						</h3>
+						{popularTags.length > 0 ? (
+							<div className="flex flex-wrap gap-2 text-left">
+								{popularTags.map(pt => (
+									<button
+										key={pt.tag}
+										onClick={() => handleTagClick(pt.tag)}
+										className={`group px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out border ${tag === pt.tag
+												? 'bg-pink-500 text-white shadow-lg shadow-pink-500/25 border-transparent scale-105'
+												: 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-pink-300 hover:text-pink-600 dark:hover:text-pink-400'
+											}`}
+									>
+										#{pt.tag}
+										<span className={`text-xs ml-1.5 px-1.5 py-0.5 rounded-md ${tag === pt.tag ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 group-hover:bg-pink-50 group-hover:text-pink-500'
+											}`}>
+											{pt.count}
+										</span>
+									</button>
+								))}
+							</div>
+						) : (
+							<p className="text-sm text-gray-500 dark:text-gray-400">タグがまだありません。</p>
+						)}
+					</div>
+				</aside>
+			</main>
 		</div>
 	);
 }
-
-const resources = [
-	{
-		href: "https://remix.run/start/quickstart",
-		text: "Quick Start (5 min)",
-		icon: (
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="24"
-				height="20"
-				viewBox="0 0 20 20"
-				fill="none"
-				className="stroke-gray-600 group-hover:stroke-current dark:stroke-gray-300"
-			>
-				<path
-					d="M8.51851 12.0741L7.92592 18L15.6296 9.7037L11.4815 7.33333L12.0741 2L4.37036 10.2963L8.51851 12.0741Z"
-					strokeWidth="1.5"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-				/>
-			</svg>
-		),
-	},
-	{
-		href: "https://remix.run/start/tutorial",
-		text: "Tutorial (30 min)",
-		icon: (
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="24"
-				height="20"
-				viewBox="0 0 20 20"
-				fill="none"
-				className="stroke-gray-600 group-hover:stroke-current dark:stroke-gray-300"
-			>
-				<path
-					d="M4.561 12.749L3.15503 14.1549M3.00811 8.99944H1.01978M3.15503 3.84489L4.561 5.2508M8.3107 1.70923L8.3107 3.69749M13.4655 3.84489L12.0595 5.2508M18.1868 17.0974L16.635 18.6491C16.4636 18.8205 16.1858 18.8205 16.0144 18.6491L13.568 16.2028C13.383 16.0178 13.0784 16.0347 12.915 16.239L11.2697 18.2956C11.047 18.5739 10.6029 18.4847 10.505 18.142L7.85215 8.85711C7.75756 8.52603 8.06365 8.21994 8.39472 8.31453L17.6796 10.9673C18.0223 11.0653 18.1115 11.5094 17.8332 11.7321L15.7766 13.3773C15.5723 13.5408 15.5554 13.8454 15.7404 14.0304L18.1868 16.4767C18.3582 16.6481 18.3582 16.926 18.1868 17.0974Z"
-					strokeWidth="1.5"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-				/>
-			</svg>
-		),
-	},
-	{
-		href: "https://remix.run/docs",
-		text: "Remix Docs",
-		icon: (
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="24"
-				height="20"
-				viewBox="0 0 20 20"
-				fill="none"
-				className="stroke-gray-600 group-hover:stroke-current dark:stroke-gray-300"
-			>
-				<path
-					d="M9.99981 10.0751V9.99992M17.4688 17.4688C15.889 19.0485 11.2645 16.9853 7.13958 12.8604C3.01467 8.73546 0.951405 4.11091 2.53116 2.53116C4.11091 0.951405 8.73546 3.01467 12.8604 7.13958C16.9853 11.2645 19.0485 15.889 17.4688 17.4688ZM2.53132 17.4688C0.951566 15.8891 3.01483 11.2645 7.13974 7.13963C11.2647 3.01471 15.8892 0.951453 17.469 2.53121C19.0487 4.11096 16.9854 8.73551 12.8605 12.8604C8.73562 16.9853 4.11107 19.0486 2.53132 17.4688Z"
-					strokeWidth="1.5"
-					strokeLinecap="round"
-				/>
-			</svg>
-		),
-	},
-	{
-		href: "https://rmx.as/discord",
-		text: "Join Discord",
-		icon: (
-			<svg
-				xmlns="http://www.w3.org/2000/svg"
-				width="24"
-				height="20"
-				viewBox="0 0 24 20"
-				fill="none"
-				className="stroke-gray-600 group-hover:stroke-current dark:stroke-gray-300"
-			>
-				<path
-					d="M15.0686 1.25995L14.5477 1.17423L14.2913 1.63578C14.1754 1.84439 14.0545 2.08275 13.9422 2.31963C12.6461 2.16488 11.3406 2.16505 10.0445 2.32014C9.92822 2.08178 9.80478 1.84975 9.67412 1.62413L9.41449 1.17584L8.90333 1.25995C7.33547 1.51794 5.80717 1.99419 4.37748 2.66939L4.19 2.75793L4.07461 2.93019C1.23864 7.16437 0.46302 11.3053 0.838165 15.3924L0.868838 15.7266L1.13844 15.9264C2.81818 17.1714 4.68053 18.1233 6.68582 18.719L7.18892 18.8684L7.50166 18.4469C7.96179 17.8268 8.36504 17.1824 8.709 16.4944L8.71099 16.4904C10.8645 17.0471 13.128 17.0485 15.2821 16.4947C15.6261 17.1826 16.0293 17.8269 16.4892 18.4469L16.805 18.8725L17.3116 18.717C19.3056 18.105 21.1876 17.1751 22.8559 15.9238L23.1224 15.724L23.1528 15.3923C23.5873 10.6524 22.3579 6.53306 19.8947 2.90714L19.7759 2.73227L19.5833 2.64518C18.1437 1.99439 16.6386 1.51826 15.0686 1.25995ZM16.6074 10.7755L16.6074 10.7756C16.5934 11.6409 16.0212 12.1444 15.4783 12.1444C14.9297 12.1444 14.3493 11.6173 14.3493 10.7877C14.3493 9.94885 14.9378 9.41192 15.4783 9.41192C16.0471 9.41192 16.6209 9.93851 16.6074 10.7755ZM8.49373 12.1444C7.94513 12.1444 7.36471 11.6173 7.36471 10.7877C7.36471 9.94885 7.95323 9.41192 8.49373 9.41192C9.06038 9.41192 9.63892 9.93712 9.6417 10.7815C9.62517 11.6239 9.05462 12.1444 8.49373 12.1444Z"
-					strokeWidth="1.5"
-				/>
-			</svg>
-		),
-	},
-];

@@ -200,3 +200,14 @@ dist
 
 ### Remix ###
 /build/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+.memo.md
+worker-configuration.d.ts
+wrangler.json

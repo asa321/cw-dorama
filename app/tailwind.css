@@ -10,3 +10,24 @@ body {
 		color-scheme: dark;
 	}
 }
+
+/* Fix MDEditor preview styles overridden by Tailwind base styles */
+.wmde-markdown ul {
+  list-style-type: disc !important;
+  padding-left: 2em !important;
+}
+
+.wmde-markdown ol {
+  list-style-type: decimal !important;
+  padding-left: 2em !important;
+}
+
+.wmde-markdown ul ul,
+.wmde-markdown ol ul {
+  list-style-type: circle !important;
+}
+
+.wmde-markdown ul ul ul,
+.wmde-markdown ol ul ul {
+  list-style-type: square !important;
+}

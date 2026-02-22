@@ -29,6 +29,7 @@ export default defineConfig({
 		tsconfigPaths(),
 	],
 	ssr: {
+		noExternal: [/^@uiw\//],
 		resolve: {
 			conditions: ["workerd", "worker", "browser"],
 		},

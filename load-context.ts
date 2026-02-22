@@ -5,15 +5,16 @@ type GetLoadContextArgs = {
 	context: {
 		cloudflare: Omit<PlatformProxy<Env>, "dispose" | "caches" | "cf"> & {
 			caches: PlatformProxy<Env>["caches"] | CacheStorage;
-			cf: Request["cf"];
+			cf: any;
 		};
 	};
 };
 
+// type Cloudflare = Omit<PlatformProxy<Env>, "dispose">; // This type is no longer needed
+
 declare module "@remix-run/cloudflare" {
-	// eslint-disable-next-line @typescript-eslint/no-empty-interface
-	interface AppLoadContext extends ReturnType<typeof getLoadContext> {
-		// This will merge the result of `getLoadContext` into the `AppLoadContext`
+	interface AppLoadContext {
+		cloudflare: GetLoadContextArgs["context"]["cloudflare"]; // Changed to use the specific type from GetLoadContextArgs
 	}
 }
 
