@@ -4,6 +4,7 @@ import { useState } from "react";
 import { requireAdminSession } from "../utils/session.server";
 import type { Article } from "../utils/db.server";
 import { ClientOnly } from "../components/ClientOnly";
+import { MediaSelectModal } from "../components/MediaSelectModal";
 import MDEditor from "@uiw/react-md-editor";
 import { getJapaneseCommands, getJapaneseExtraCommands } from "../utils/editorCommands";
 
@@ -105,8 +106,9 @@ export default function EditArticle() {
   const submit = useSubmit();
   const isSubmitting = navigation.state === "submitting" && navigation.formData?.get("_intent") !== "delete";
   const isDeleting = navigation.state === "submitting" && navigation.formData?.get("_intent") === "delete";
-  const [isUploading, setIsUploading] = useState(false);
+  const [mediaModalTarget, setMediaModalTarget] = useState<'editor' | 'hero' | null>(null);
   const [content, setContent] = useState(article.content || "");
+  const [heroImageKey, setHeroImageKey] = useState<string>(article.hero_image_key || "");
 
   const handleDelete = () => {
     if (confirm("本当にこの記事を削除しますか？この操作は取り消せません。")) {
@@ -242,72 +244,30 @@ export default function EditArticle() {
               <div className="flex items-start gap-6">
                 <div className="flex-1">
                   <div className="flex items-center justify-center w-full">
-                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 hover:border-pink-400 transition-colors relative overflow-hidden group">
+                    <button
+                      type="button"
+                      onClick={() => setMediaModalTarget('hero')}
+                      className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer bg-gray-50 hover:bg-gray-100 hover:border-pink-400 transition-colors relative overflow-hidden group"
+                    >
                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                         <svg className="w-8 h-8 text-gray-400 group-hover:text-pink-500 mb-2 transition-colors" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
                           <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2" />
                         </svg>
-                        <p className="mb-1 text-sm text-gray-500"><span className="font-semibold text-pink-600">クリックして変更</span></p>
-                        <p className="text-xs text-gray-400">SVG, PNG, JPG, WEBP (最大. 5MB)</p>
+                        <p className="mb-1 text-sm text-gray-500"><span className="font-semibold text-pink-600">クリックしてメディアを開く</span></p>
+                        <p className="text-xs text-gray-400">画像を選択またはアップロード</p>
                       </div>
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setIsUploading(true);
-                            const formData = new FormData();
-                            formData.append("image", file);
-
-                            try {
-                              const res = await fetch("/api/upload", {
-                                method: "POST",
-                                body: formData
-                              });
-                              const data = await res.json() as any;
-
-                              if (data.success) {
-                                (document.getElementById("hero_image_key") as HTMLInputElement).value = data.key || "";
-                                const preview = document.getElementById("hero_preview") as HTMLImageElement;
-                                if (preview) {
-                                  preview.src = data.url;
-                                  preview.classList.remove("hidden");
-                                }
-                                const placeholder = document.getElementById("preview_placeholder");
-                                if (placeholder) placeholder.classList.add("hidden");
-                              } else {
-                                alert(data.error || "アップロードに失敗しました");
-                              }
-                            } catch (err) {
-                              alert("エラーが発生しました");
-                            } finally {
-                              setIsUploading(false);
-                            }
-                          }
-                        }}
-                      />
-                      {isUploading && (
-                        <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
-                          <div className="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-                        </div>
-                      )}
-                    </label>
+                    </button>
                   </div>
-                  <input type="hidden" name="hero_image_key" id="hero_image_key" defaultValue={article.hero_image_key || ""} />
+                  <input type="hidden" name="hero_image_key" value={heroImageKey} />
                 </div>
 
                 <div className="w-48 h-32 rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex-shrink-0 relative shadow-inner">
-                  {article.hero_image_key ? (
-                    <img id="hero_preview" src={`/api/media/${article.hero_image_key}`} alt="Preview" className="w-full h-full object-cover relative z-10" />
+                  {heroImageKey ? (
+                    <img src={`/api/media/${heroImageKey}`} alt="Preview" className="w-full h-full object-cover relative z-10" />
                   ) : (
-                    <>
-                      <div id="preview_placeholder" className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
-                        プレビュー
-                      </div>
-                      <img id="hero_preview" src="" alt="Preview" className="w-full h-full object-cover hidden relative z-10" />
-                    </>
+                    <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-sm">
+                      プレビュー
+                    </div>
                   )}
                 </div>
               </div>
@@ -326,7 +286,7 @@ export default function EditArticle() {
                     value={content}
                     onChange={(val) => setContent(val || "")}
                     height={600}
-                    commands={getJapaneseCommands()}
+                    commands={getJapaneseCommands(() => setMediaModalTarget('editor'))}
                     extraCommands={getJapaneseExtraCommands()}
                     style={{ backgroundColor: 'white', color: '#1f2937' }}
                     textareaProps={{
@@ -352,8 +312,8 @@ export default function EditArticle() {
               </Link>
               <button
                 type="submit"
-                disabled={isSubmitting || isUploading}
-                className={`flex-1 sm:flex-none px-8 py-2.5 bg-pink-600 text-white font-bold rounded-lg shadow-sm hover:bg-pink-700 hover:shadow transition-all ${isSubmitting || isUploading ? "opacity-70 cursor-not-allowed" : ""
+                disabled={isSubmitting}
+                className={`flex-1 sm:flex-none px-8 py-2.5 bg-pink-600 text-white font-bold rounded-lg shadow-sm hover:bg-pink-700 hover:shadow transition-all ${isSubmitting ? "opacity-70 cursor-not-allowed" : ""
                   }`}
               >
                 {isSubmitting ? "更新中..." : "変更を保存"}
@@ -362,6 +322,39 @@ export default function EditArticle() {
           </div>
         </Form>
       </div>
+
+      <MediaSelectModal
+        isOpen={mediaModalTarget !== null}
+        onClose={() => setMediaModalTarget(null)}
+        onSelect={(url, alt) => {
+          if (mediaModalTarget === 'editor') {
+            // エディタに画像Markdownを挿入
+            const textarea = document.querySelector('.w-md-editor-text-input') as HTMLTextAreaElement;
+            if (textarea) {
+              const start = textarea.selectionStart;
+              const end = textarea.selectionEnd;
+              const textToInsert = `![${alt}](${url})`;
+
+              const newContent = content.substring(0, start) + textToInsert + content.substring(end);
+              setContent(newContent);
+
+              // カーソル位置を挿入した画像の後に移動 (非同期で少し待つ)
+              setTimeout(() => {
+                textarea.focus();
+                textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
+              }, 50);
+            } else {
+              // テキストエリアが見つからない場合のフォールバック
+              setContent(prev => prev + `\n![${alt}](${url})\n`);
+            }
+          } else if (mediaModalTarget === 'hero') {
+            // ヒーロー画像に設定
+            const key = `uploads/${alt}`; // altからファイル名(キー)を取得
+            setHeroImageKey(key);
+          }
+          setMediaModalTarget(null);
+        }}
+      />
     </div>
   );
 }

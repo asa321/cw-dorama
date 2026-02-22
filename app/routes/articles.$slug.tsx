@@ -65,9 +65,6 @@ export default function ArticleDetail() {
     day: 'numeric'
   }).format(new Date(article.created_at));
 
-  const imageUrl = article.hero_image_key
-    ? `/api/media/${article.hero_image_key}`
-    : "https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?q=80&w=1600&auto=format&fit=crop";
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-950 font-sans selection:bg-pink-100 selection:text-pink-900 pb-20">
@@ -99,14 +96,6 @@ export default function ArticleDetail() {
             </time>
           </div>
 
-          <div className="relative w-full aspect-[21/9] rounded-3xl overflow-hidden shadow-2xl border border-gray-100 dark:border-gray-800 isolate">
-            <div className="absolute inset-0 bg-pink-500/10 mix-blend-multiply z-10" />
-            <img
-              src={imageUrl}
-              alt={article.title}
-              className="w-full h-full object-cover relative z-0"
-            />
-          </div>
         </header>
 
         {/* Article Body */}

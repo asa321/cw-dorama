@@ -4,6 +4,8 @@ import { Header } from "../components/Header";
 import { ArticleCard } from "../components/ArticleCard";
 import type { Article } from "../utils/db.server";
 
+type ArticleWithTags = Article & { tags: string[] };
+
 export async function loader({ request, context }: LoaderFunctionArgs) {
 	const url = new URL(request.url);
 	const q = url.searchParams.get("q") || "";
@@ -37,7 +39,7 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 
 	const { results: articles } = await stmt.all<Article>();
 
-	let mappedArticles = articles;
+	let mappedArticles: ArticleWithTags[];
 	if (articles.length > 0) {
 		const placeholders = articles.map(() => '?').join(',');
 		const ids = articles.map(a => a.id);
@@ -48,7 +50,9 @@ export async function loader({ request, context }: LoaderFunctionArgs) {
 		mappedArticles = articles.map(a => ({
 			...a,
 			tags: tags.filter(t => t.article_id === a.id).map(t => t.tag)
-		}));
+		})) as ArticleWithTags[];
+	} else {
+		mappedArticles = [];
 	}
 
 	const { results: popularTags } = await db.prepare(`
@@ -178,8 +182,8 @@ export default function Index() {
 										key={pt.tag}
 										onClick={() => handleTagClick(pt.tag)}
 										className={`group px-3.5 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-out border ${tag === pt.tag
-												? 'bg-pink-500 text-white shadow-lg shadow-pink-500/25 border-transparent scale-105'
-												: 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-pink-300 hover:text-pink-600 dark:hover:text-pink-400'
+											? 'bg-pink-500 text-white shadow-lg shadow-pink-500/25 border-transparent scale-105'
+											: 'bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-pink-300 hover:text-pink-600 dark:hover:text-pink-400'
 											}`}
 									>
 										#{pt.tag}
