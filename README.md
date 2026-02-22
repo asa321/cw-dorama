@@ -1,57 +1,96 @@
-# Welcome to Remix + Cloudflare Workers!
+# cw-dorama
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/templates/tree/main/remix-starter-template)
+Remix + Cloudflare Workers で動くアプリです。
 
-<!-- dash-content-start -->
+## 前提条件
 
-Build a fullstack Remix application, deployed to Cloudflare Workers.
+- Node.js 20 以上
+- npm
+- Cloudflare アカウント
 
-- 📖 [Remix docs](https://remix.run/docs)
-- 📖 [Remix Cloudflare docs](https://remix.run/guides/vite#cloudflare)
+初回のみ Cloudflare にログインします。
 
-<!-- dash-content-end -->
+```sh
+npx wrangler login
+```
 
-## Development
+依存関係をインストールします。
 
-Run the dev server:
+```sh
+npm install
+```
+
+## デバッグの開始方法
+
+### 1. 開発サーバーでデバッグする
+
+もっとも速く確認する方法です。
 
 ```sh
 npm run dev
 ```
 
-To run Wrangler:
+起動後、表示されたローカル URL（通常は `http://localhost:5173`）にアクセスしてください。
+
+### 2. Workers 実行環境に近い状態でデバッグする
+
+Cloudflare Workers に近い挙動で確認したい場合はこちらを使います。
 
 ```sh
-npm run build
-npm start
+npm run preview
 ```
 
-## Typegen
+`preview` は `npm run build` のあとに `wrangler dev` を実行します。
 
-Generate types for your Cloudflare bindings in `wrangler.toml`:
+## Deploy して実行する方法
 
-```sh
-npm run typegen
-```
-
-You will need to rerun typegen whenever you make changes to `wrangler.toml`.
-
-## Deployment
-
-If you don't already have an account, then [create a cloudflare account here](https://dash.cloudflare.com/sign-up) and after verifying your email address with Cloudflare, go to your dashboard and set up your free custom Cloudflare Workers subdomain.
-
-Once that's done, you should be able to build your app:
-
-```sh
-npm run build
-```
-
-And deploy it:
+1. アプリをデプロイする
 
 ```sh
 npm run deploy
 ```
 
-## Styling
+2. デプロイ完了後、ターミナルに表示される `workers.dev` の URL にアクセスする
 
-This template comes with [Tailwind CSS](https://tailwindcss.com/) already configured for a simple default starting experience. You can use whatever css framework you prefer. See the [Vite docs on css](https://vitejs.dev/guide/features.html#css) for more information.
+例:
+
+```txt
+https://cw-dorama.toroo.workers.dev
+```
+
+同じコマンドを再実行すると最新版に更新デプロイされます。
+
+## DB マイグレーション（schema.sql）
+
+`schema.sql` と同内容の初期マイグレーションを `migrations/0001_init.sql` として追加しています。
+
+### ローカル DB へ適用
+
+```sh
+npm run db:migrate:local
+```
+
+### Cloudflare のリモート DB へ適用
+
+```sh
+npm run db:migrate:remote
+```
+
+### スキーマ変更時の運用
+
+1. `schema.sql` を更新する
+2. 新しい番号で `migrations/` に SQL を追加する（例: `migrations/0002_add_xxx.sql`）
+3. `npm run db:migrate:local` で確認する
+4. 問題なければ `npm run db:migrate:remote` を実行する
+
+既存のマイグレーションファイルは、適用後は書き換えない運用を推奨します。
+
+## 補足
+
+- 型定義を再生成する場合:
+
+```sh
+npm run typegen
+```
+
+- `wrangler.json` の binding を変更した場合は、`npm run typegen` を再実行してください。
