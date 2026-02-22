@@ -1,13 +1,13 @@
 import { createRequestHandler, type ServerBuild } from "@remix-run/cloudflare";
 import { logDevReady } from "@remix-run/cloudflare";
-import * as build from "@remix-run/dev/server-build";
+import * as build from "./build/server";
 import { getLoadContext } from "./load-context";
 
 if (process.env.NODE_ENV === "development") {
-	logDevReady(build);
+	logDevReady(build as unknown as ServerBuild);
 }
 
-const handleRemixRequest = createRequestHandler(build as ServerBuild);
+const handleRemixRequest = createRequestHandler(build as unknown as ServerBuild);
 
 export default {
 	async fetch(request, env, ctx) {
