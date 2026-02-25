@@ -18,13 +18,19 @@ export function ArticleCard({ article }: ArticleCardProps) {
       to={`/articles/${article.slug}`}
       className="group flex flex-col bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-gray-100 dark:border-gray-800"
     >
-      <div className="relative w-full bg-gray-50 dark:bg-gray-800 overflow-hidden">
+      <div className="relative w-full aspect-[4/3] sm:aspect-video bg-gray-100 dark:bg-gray-800 overflow-hidden flex items-center justify-center">
+        {/* 背景ぼかし */}
+        <div
+          className="absolute inset-0 bg-cover bg-center opacity-40 blur-xl scale-125 transition-transform duration-500 group-hover:scale-150"
+          style={{ backgroundImage: `url(${imageUrl})` }}
+        />
+        {/* メイン画像 */}
         <img
           src={imageUrl}
           alt={article.title}
-          className="w-full h-auto object-contain transition-transform duration-500 group-hover:scale-105 origin-center"
+          className="relative z-10 w-full h-full object-contain transition-transform duration-500 group-hover:scale-105 origin-center drop-shadow-md"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute inset-0 z-20 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
       </div>
       <div className="p-5 flex flex-col flex-grow">
         <div className="flex gap-2 mb-3 flex-wrap">

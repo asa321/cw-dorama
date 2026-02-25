@@ -63,7 +63,7 @@
     "db:migrate:local": "wrangler d1 migrations apply cw-dorama-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply cw-dorama-db --remote",
     "deploy": "wrangler deploy",
-    "dev": "remix vite:dev",
+    "dev": "remix vite:dev --host 0.0.0.0 --port 38789",
     "lint": "eslint --cache --cache-location ./node_modules/.cache/eslint .",
     "preview": "npm run build && wrangler dev",
     "start": "wrangler dev",

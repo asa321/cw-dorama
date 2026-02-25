@@ -89,7 +89,7 @@ export default function Index() {
 			<Header />
 
 			{/* Hero Section */}
-			{!q && !tag && (
+			{/* !q && !tag && (
 				<section className="relative overflow-hidden bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800">
 					<div className="absolute inset-0 bg-gradient-to-tr from-pink-500/5 via-transparent to-rose-400/5 mix-blend-overlay" />
 					<div className="container mx-auto px-4 py-16 md:py-24 relative z-10 lg:text-center text-left">
@@ -104,7 +104,7 @@ export default function Index() {
 						</p>
 					</div>
 				</section>
-			)}
+			) */}
 
 			{/* Main Content */}
 			<main className="container mx-auto px-4 py-8 md:py-12 flex flex-col lg:flex-row gap-8 lg:gap-12 relative">
@@ -133,8 +133,8 @@ export default function Index() {
 					{isSearching ? (
 						<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
 							{[...Array(6)].map((_, i) => (
-								<div key={i} className="animate-pulse bg-white dark:bg-gray-900 rounded-2xl h-96 border border-gray-100 dark:border-gray-800 flex flex-col">
-									<div className="h-48 bg-gray-100 dark:bg-gray-800 rounded-t-2xl" />
+								<div key={i} className="animate-pulse bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-800 flex flex-col">
+									<div className="w-full aspect-[4/3] sm:aspect-video bg-gray-100 dark:bg-gray-800" />
 									<div className="p-5 flex flex-col gap-4 flex-1">
 										<div className="flex gap-2"><div className="h-6 w-16 bg-gray-100 dark:bg-gray-800 rounded-full" /></div>
 										<div className="h-6 bg-gray-100 dark:bg-gray-800 rounded w-full" />
